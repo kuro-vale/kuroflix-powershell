@@ -95,7 +95,7 @@ function Start-EmbeddedLink {
     }
     Clear-Host
     Write-Host "Sorry, can't find another link :(, Goodbye!"
-    Exit-PSHostProcess
+    exit
 }
 
 
@@ -119,7 +119,9 @@ function Save-Cache {
         [Parameter(Mandatory = $true, Position = 1)]
         [string]$regex_embed,
         [Parameter(Mandatory = $true, Position = 2)]
-        $media_links
+        $media_links,
+        [Parameter(Mandatory = $false, Position = 3)]
+        $pelisplus
     )
     # Save the variables needed to reproduce media in cache.ps1, cache_media save the url of the next episode
     $global:choice += 1
@@ -130,7 +132,12 @@ function Save-Cache {
         }
         $i++
     }
-    Write-Output "`$global:choice=$global:choice`n`$url='$url'`n`$regex_embed='$regex_embed'`n`$global:cache_media='$global:cache_media'`n`$media_links=" > cache.ps1
+    if ($pelisplus -eq $true) {
+        Write-Output "`$global:pelisplus=`$true`n`$global:choice=$global:choice`n`$url='$url'`n`$regex_embed=`"$regex_embed`"`n`$global:cache_media='$global:cache_media'`n`$media_links=" > cache.ps1        
+    }
+    else {
+        Write-Output "`$global:pelisplus=`$false`n`$global:choice=$global:choice`n`$url='$url'`n`$regex_embed='$regex_embed'`n`$global:cache_media='$global:cache_media'`n`$media_links=" > cache.ps1
+    }
     foreach ($link in $media_links) {
         Write-Output "'$link'," >> cache.ps1
     }
@@ -148,7 +155,7 @@ function Start-Cache {
         $media_links
     )
     Remove-Item cache.ps1
-    Save-Cache $url $regex_embed $media_links
+    Save-Cache $url $regex_embed $media_links $pelisplus
     $media = $global:cache_media
     Start-EmbeddedLink $url $regex_embed $media
 }
@@ -176,6 +183,32 @@ function Watch-EnglishMedia {
 }
 
 
+function Watch-SpanishMedia {
+    #Scrape spanish media
+    $pelisplus = $true
+    $url = "https://pelisplushd.net/search"
+    $regex = '\s*<a href="https:\/\/pelisplushd.net\/(?<media>[^"]*)" class=.*'
+    $media_links = Get-UrlTitles $url $regex
+    $url = "https://pelisplushd.net/"
+    Write-MediaTitles $media_links
+    $media = Get-UserChoice $media_links
+    $regex_embed = "\s*video\[\d\] = '(?<media>[^']*)'.*"
+    # Distinguis between movie or series
+    if ($media -match "^serie\/.*") {
+        # When series selected, search episodes an change $media to the selected episode
+        $url_episodes = "https://pelisplushd.net/serie/"
+        $regex_episodes = '\s*<a href="' + $url_episodes + '(?<media>[^"]*)" class=.*'
+        $media = Select-Episodes $url $regex_episodes $media
+        $url = $url_episodes
+        # Prevent add 2 to choice when saving cache
+        $global:choice -= 1
+        Save-Cache $url $regex_embed $global:media_links $pelisplus
+    }
+    Start-EmbeddedLink $url $regex_embed $media
+}
+
+
+
 function Menu {
     Clear-Host
     # If cache found, ask user if want to reproduce next episode
@@ -194,6 +227,7 @@ function Menu {
     $selected_option = Read-Host
     switch ($selected_option) {
         1 { Watch-EnglishMedia }
+        2 { Watch-SpanishMedia }
         4 {
             Clear-Host
             Write-Host "Goodbye"
