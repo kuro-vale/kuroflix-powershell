@@ -184,7 +184,8 @@ function Watch-EnglishMedia {
 
 
 function Watch-SpanishMedia {
-    #Scrape spanish media
+    # Scrape spanish media
+    # Since regex_embed of pelisplus have single quotes, this is useful to save the file without affect regex_embed of gototub 
     $pelisplus = $true
     $url = "https://pelisplushd.net/search"
     $regex = '\s*<a href="https:\/\/pelisplushd.net\/(?<media>[^"]*)" class=.*'
@@ -208,6 +209,22 @@ function Watch-SpanishMedia {
 }
 
 
+function Watch-HentaiSub {
+    # Scrape Hentai
+    $url = "https://hentaihaven.com/"
+    $regex = '<h3><a class="brick-title" href="' + $url + 'series/(?<media>[^"]*)">.*'
+    $media_links= Get-UrlTitles $url $regex
+    Write-MediaTitles $media_links
+    $media= Get-UserChoice $media_links
+    # Since there are only series, change the url to find episodes
+    $regex_episodes='<h3><a class="brick-title" href="'+$url+'(?<media>[^"]*)">.*'
+    $url="https://hentaihaven.com/series/"
+    $media = Select-Episodes $url $regex_episodes $media
+    $regex_embed='<iframe src="(?<media>[^"]*)".*'
+    $url = "https://hentaihaven.com/"
+    Start-EmbeddedLink $url $regex_embed $media
+}
+
 
 function Menu {
     Clear-Host
@@ -228,6 +245,7 @@ function Menu {
     switch ($selected_option) {
         1 { Watch-EnglishMedia }
         2 { Watch-SpanishMedia }
+        3 { Watch-HentaiSub }
         4 {
             Clear-Host
             Write-Host "Goodbye"
@@ -238,4 +256,4 @@ function Menu {
 }
 
 
-Menu
+Menu # This start the menu
