@@ -18,6 +18,7 @@ function Get-UrlTitles {
     }
     if (!$media_links) {
         Write-Host "No search results for $search`nVerify that you didn't have errors like: 'Abatar' instead of 'Avatar', 'Ironman' instead of 'Iron Man'"
+        exit
     }
     return $media_links
 }
@@ -25,16 +26,14 @@ function Get-UrlTitles {
 
 function Get-UserChoice {
     param (
-        [Parameter(Mandatory = $true, Position=0)]
+        [Parameter(Mandatory = $true, Position = 0)]
         $media_links
-        # [Parameter(Mandatory = $false, Position=1)]
-        # [bool]$save_choice
     )
     # Get the media url based on the user choice
-    $choice = Read-Host -Prompt "Enter the prefix number of what do you want to watch: "
+    $global:choice = Read-Host -Prompt "Enter the prefix number of what do you want to watch: "
     $i = 1
     foreach ($link in $media_links) {
-        if ($choice -eq $i) {
+        if ($global:choice -eq $i) {
             $media = $link
         }
         $i++
@@ -60,6 +59,7 @@ function Select-Episodes {
         $media_links.Add(($Value.Groups.Where{ $_.Name -like 'media' }).Value)
     }
     Write-MediaTitles $media_links
+    $global:media_links = $media_links
     $media = Get-UserChoice $media_links
     return $media
 }
@@ -84,13 +84,13 @@ function Start-EmbeddedLink {
     foreach ($link in $embedded_links) {
         Start-Process $BROWSER $link
         $retry = Read-Host -Prompt "Want to try with another link? Y/N: "
-        if ($retry.ToUpper() -eq "Y") {
+        if ( $retry.ToUpper() -eq "Y" ) {
             continue
         }
         else {
             Clear-Host
             Write-Host "Goodbye"
-            Exit-PSHostProcess
+            exit
         }
     }
     Clear-Host
@@ -112,9 +112,50 @@ function Write-MediaTitles {
 }
 
 
+function Save-Cache {
+    param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [string]$url,
+        [Parameter(Mandatory = $true, Position = 1)]
+        [string]$regex_embed,
+        [Parameter(Mandatory = $true, Position = 2)]
+        $media_links
+    )
+    # Save the variables needed to reproduce media in cache.ps1, cache_media save the url of the next episode
+    $global:choice += 1
+    $i = 1
+    foreach ($link in $media_links) {
+        if ($global:choice -eq $i) {
+            $global:cache_media = $link
+        }
+        $i++
+    }
+    Write-Output "`$global:choice=$global:choice`n`$url='$url'`n`$regex_embed='$regex_embed'`n`$global:cache_media='$global:cache_media'`n`$media_links=" > cache.ps1
+    foreach ($link in $media_links) {
+        Write-Output "'$link'," >> cache.ps1
+    }
+    Write-Output "'That Was the last chapter :('" >> .\cache.ps1
+}
+
+
+function Start-Cache {
+    param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [string]$url,
+        [Parameter(Mandatory = $true, Position = 1)]
+        [string]$regex_embed,
+        [Parameter(Mandatory = $true, Position = 2)]
+        $media_links
+    )
+    Remove-Item cache.ps1
+    Save-Cache $url $regex_embed $media_links
+    $media = $global:cache_media
+    Start-EmbeddedLink $url $regex_embed $media
+}
+
+
 function Watch-EnglishMedia {
     # Scrape the url to find movies or series
-    $choice
     $url = "https://gototub.com/"
     $regex = '\s*<a href="' + $url + '(?<media>[^"]*)" data-url=.*'
     $media_links = Get-UrlTitles $url $regex
@@ -127,11 +168,40 @@ function Watch-EnglishMedia {
         $regex_episodes = '\s*<a href="' + $url_episodes + '(?<media>[^"]*)">.*'
         $media = Select-Episodes $url $regex_episodes $media
         $url = $url_episodes
-        #$choice-=1
-        #Save-Cache
+        # Prevent add 2 to choice when saving cache
+        $global:choice -= 1 
+        Save-Cache $url $regex_embed $global:media_links
     }
     Start-EmbeddedLink $url $regex_embed $media
 }
 
 
-Watch-EnglishMedia
+function Menu {
+    Clear-Host
+    # If cache found, ask user if want to reproduce next episode
+    if (Test-Path cache.ps1) {
+        . .\cache.ps1
+        $ans = Read-Host -Prompt "In your last visit you were watching $global:cache_media, Do you want to see the next episode? Y/N: "
+        if ($ans.ToUpper() -eq "Y") {
+            Start-Cache $url $regex_embed $media_links
+        }
+        else {
+            Remove-Item cache.ps1
+        }
+    }
+    Clear-Host
+    Write-Host "Menu`n`n1. Watch movies or series in english`n2. Watch movies or series in spanish`n3. Watch Hentai`n4.exit"
+    $selected_option = Read-Host
+    switch ($selected_option) {
+        1 { Watch-EnglishMedia }
+        4 {
+            Clear-Host
+            Write-Host "Goodbye"
+            Exit-PSHostProcess 
+        }
+        Default { Write-Host -ForegroundColor red -BackgroundColor white "Invalid option. Please select another option"; pause; Menu }
+    }
+}
+
+
+Menu
