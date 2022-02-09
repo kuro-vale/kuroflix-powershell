@@ -10,8 +10,6 @@ For english media this script scrapes [gototub](https://www.gototub.com/)
 
 For spanish media this script scrapes [pelisplus](https://pelisplushd.net/)
 
-For hentai sub english this script scrapes [hentaihaven](https://hentaihaven.com/)
-
 ## Download
 
 Download code as zip and extract 

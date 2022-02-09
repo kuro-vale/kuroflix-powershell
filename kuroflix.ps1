@@ -209,23 +209,6 @@ function Watch-SpanishMedia {
 }
 
 
-function Watch-HentaiSub {
-    # Scrape Hentai
-    $url = "https://hentaihaven.com/"
-    $regex = '<h3><a class="brick-title" href="' + $url + 'series/(?<media>[^"]*)">.*'
-    $media_links= Get-UrlTitles $url $regex
-    Write-MediaTitles $media_links
-    $media= Get-UserChoice $media_links
-    # Since there are only series, change the url to find episodes
-    $regex_episodes='<h3><a class="brick-title" href="'+$url+'(?<media>[^"]*)">.*'
-    $url="https://hentaihaven.com/series/"
-    $media = Select-Episodes $url $regex_episodes $media
-    $regex_embed='<iframe src="(?<media>[^"]*)".*'
-    $url = "https://hentaihaven.com/"
-    Start-EmbeddedLink $url $regex_embed $media
-}
-
-
 function Menu {
     Clear-Host
     # If cache found, ask user if want to reproduce next episode
@@ -240,13 +223,12 @@ function Menu {
         }
     }
     Clear-Host
-    Write-Host "Menu`n`n1. Watch movies or series in english`n2. Watch movies or series in spanish`n3. Watch Hentai`n4.exit"
+    Write-Host "Menu`n`n1. Watch movies or series in english`n2. Watch movies or series in spanish`n3. Exit"
     $selected_option = Read-Host
     switch ($selected_option) {
         1 { Watch-EnglishMedia }
         2 { Watch-SpanishMedia }
-        3 { Watch-HentaiSub }
-        4 {
+        3 {
             Clear-Host
             Write-Host "Goodbye"
             Exit-PSHostProcess 
